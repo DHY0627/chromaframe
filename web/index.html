@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chromaframe</title>
+<link rel="stylesheet" href="/static/style.css?v=1.0.0">
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <div class="mark" aria-hidden="true"><span></span><span></span><span></span></div>
+      <div class="brand-text">
+        <div class="brand-name">CHROMAFRAME</div>
+        <div class="brand-sub">HTML → MP4 / FRAME-ACCURATE RENDERER</div>
+      </div>
+    </div>
+    <div class="top-status">
+      <div class="chip" id="chromeChip" title="用于预览和逐帧渲染的浏览器">
+        <i class="dot"></i><span class="chip-label">Chromium</span><b id="chromeText">检测中</b>
+      </div>
+      <div class="chip" id="ffmpegChip" title="用于编码 H.264 MP4">
+        <i class="dot"></i><span class="chip-label">FFmpeg</span><b id="ffmpegText">检测中</b>
+      </div>
+      <div class="chip version" id="versionChip">v1.0.0</div>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <aside class="sidebar">
+      <section class="panel">
+        <div class="panel-head">
+          <span class="index">01</span>
+          <h2>页面源</h2>
+        </div>
+        <label class="field">
+          <span class="label">HTML 文件</span>
+          <div class="input-row">
+            <input id="htmlPath" class="text-input" type="text" spellcheck="false" placeholder="选择或输入 .html 文件的绝对路径">
+            <button class="btn ghost" id="browseHtml" type="button">浏览</button>
+          </div>
+        </label>
+        <p class="hint" id="htmlHint">相对资源、ES Modules、字体与 CDN 依赖都会被加载完成后才开始渲染。</p>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <span class="index">02</span>
+          <h2>画布</h2>
+        </div>
+        <label class="field">
+          <span class="label">分辨率</span>
+          <div class="res-row">
+            <div class="num-wrap"><input id="width" class="num-input" type="number" min="64" max="7680" step="2" value="1920"><span class="unit">W</span></div>
+            <span class="times">×</span>
+            <div class="num-wrap"><input id="height" class="num-input" type="number" min="64" max="7680" step="2" value="1080"><span class="unit">H</span></div>
+          </div>
+        </label>
+        <div class="ratio-row" id="ratioRow">
+          <button class="ratio" data-w="1920" data-h="1080" type="button">16:9</button>
+          <button class="ratio" data-w="1080" data-h="1920" type="button">9:16</button>
+          <button class="ratio" data-w="1080" data-h="1080" type="button">1:1</button>
+          <button class="ratio" data-w="1080" data-h="1350" type="button">4:5</button>
+          <button class="ratio" data-w="1440" data-h="1080" type="button">4:3</button>
+        </div>
+        <div class="split-row">
+          <label class="field compact">
+            <span class="label">时长 <em>秒</em></span>
+            <div class="input-row tight">
+              <input id="duration" class="num-input wide" type="number" min="0.1" max="3600" step="0.1" value="10">
+              <button class="btn tiny" id="autoDuration" type="button" title="向页面询问动画时长">自动</button>
+            </div>
+          </label>
+          <label class="field compact">
+            <span class="label">帧率</span>
+            <select id="fps" class="select-input">
+              <option value="24">24 fps</option>
+              <option value="25">25 fps</option>
+              <option value="30" selected>30 fps</option>
+              <option value="50">50 fps</option>
+              <option value="60">60 fps</option>
+            </select>
+          </label>
+        </div>
+        <p class="hint">预览画布会严格按该分辨率排版，所见即所得。</p>
+      </section>
+
+      <section class="panel grow">
+        <div class="panel-head">
+          <span class="index">03</span>
+          <h2>导出</h2>
+        </div>
+        <label class="field">
+          <span class="label">输出文件</span>
+          <div class="input-row">
+            <input id="output" class="text-input" type="text" spellcheck="false" placeholder="选择 .mp4 保存位置">
+            <button class="btn ghost" id="browseOutput" type="button">另存为</button>
+          </div>
+        </label>
+        <div class="mini-actions">
+          <button class="linkish" id="revealOutput" type="button">在文件夹中显示</button>
+          <span class="mini-sep"></span>
+          <button class="linkish" id="copyPath" type="button">复制路径</button>
+        </div>
+
+        <div class="ffmpeg-card" id="ffmpegCard">
+          <div class="ffmpeg-head">
+            <span class="dot" id="ffmpegDot"></span>
+            <span id="ffmpegCardText">正在检测 FFmpeg…</span>
+          </div>
+          <div class="ffmpeg-progress" id="ffmpegProgress" hidden><div class="ffmpeg-progress-fill" id="ffmpegProgressFill"></div></div>
+          <div class="ffmpeg-foot" id="ffmpegFoot"></div>
+        </div>
+
+        <div class="action-block">
+          <button class="btn primary" id="renderBtn" type="button" disabled>
+            <span class="btn-icon">▶</span><span id="renderBtnText">开始渲染</span>
+          </button>
+          <button class="btn danger" id="cancelBtn" type="button" hidden>取消渲染</button>
+          <p class="action-note" id="actionNote">渲染期间时间轴会展示实时进度。</p>
+        </div>
+      </section>
+    </aside>
+
+    <section class="stage-panel">
+      <div class="stage-head">
+        <div class="stage-title">
+          <span class="live-dot" id="liveDot"></span>
+          <span id="stageBadge">PREVIEW</span>
+          <span class="stage-sep"></span>
+          <span class="stage-name" id="stageName">未载入页面</span>
+        </div>
+        <div class="stage-meta">
+          <span id="resolutionText">1920 × 1080</span>
+          <span class="meta-sep">/</span>
+          <span id="durationText">10.0s</span>
+          <span class="meta-sep">/</span>
+          <span id="fpsText">30fps</span>
+        </div>
+      </div>
+
+      <div class="stage" id="stage">
+        <div class="stage-bg" aria-hidden="true"></div>
+        <div class="empty-state" id="emptyState">
+          <div class="empty-icon"><span></span><span></span><span></span></div>
+          <h3>还没有载入页面</h3>
+          <p>选择一个本地 HTML 文件，右侧会立即按目标分辨率显示实时预览。</p>
+          <button class="btn primary slim" id="emptyPick" type="button">选择 HTML 文件</button>
+          <div class="empty-tip">也可以直接把路径粘贴到左侧输入框</div>
+        </div>
+
+        <div class="canvas-frame" id="canvasFrame" hidden>
+          <iframe id="preview" title="HTML 预览" allow="autoplay; fullscreen" referrerpolicy="no-referrer"></iframe>
+          <img id="renderFrame" alt="渲染帧" hidden>
+          <div class="render-scan" id="renderScan" hidden></div>
+          <div class="frame-badge" id="frameBadge" hidden><span class="rec"></span>RENDERING</div>
+        </div>
+
+        <div class="stage-corner tl"></div><div class="stage-corner tr"></div>
+        <div class="stage-corner bl"></div><div class="stage-corner br"></div>
+      </div>
+
+      <div class="timeline">
+        <button class="play-btn" id="playBtn" type="button" aria-label="播放/暂停" disabled>
+          <span id="playIcon">▶</span>
+        </button>
+        <div class="time-code" id="curTime">00:00.00</div>
+        <div class="scrub-wrap">
+          <input id="scrub" class="scrub" type="range" min="0" max="10000" step="1" value="0" disabled>
+          <div class="scrub-track-fill" id="scrubFill"></div>
+        </div>
+        <div class="time-code muted" id="totalTime">00:10.00</div>
+        <div class="frame-count" id="frameCount">0 / 300</div>
+      </div>
+
+      <div class="status-line">
+        <div class="status-left"><span class="status-dot" id="statusDot"></span><span id="stageText">就绪</span></div>
+        <div class="status-right">
+          <span id="progressText"></span>
+          <button class="linkish light" id="openOutputBtn" type="button" hidden>打开视频</button>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="toasts" id="toasts"></div>
+<script src="/static/app.js?v=1.0.0"></script>
+</body>
+</html>

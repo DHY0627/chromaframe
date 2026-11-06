@@ -1,0 +1,6 @@
+/out/
+/.cache/
+*.exe
+*.log
+*.mp4
+*.part-*.mp4
