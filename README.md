@@ -14,6 +14,8 @@ Chromaframe 是一个 Windows 桌面工具：左侧选择本地 HTML、设置分
 - **自动检测 FFmpeg**：依次检查环境变量、程序目录、缓存目录、`PATH`；找不到时在 Windows 上自动下载并解压 FFmpeg 到 `%LOCALAPPDATA%\Chromaframe\bin`。
 - **所见即所得的分辨率**：输入宽高或点 16:9 / 9:16 / 1:1 等比例，右侧预览按目标分辨率等比缩放；渲染时用 Chromium 精确设置视口，像素尺寸就是导出尺寸。
 - **CDN 资源等待**：渲染前等待 `load`、图片、字体、所有进行中的网络请求，并留出网络静默窗口；超时会明确报错，不会静默输出残缺页面。
+- **支持 WebGL / three.js**：桌面 Chrome / Edge 的 GPU 路径可渲染 WebGL；无 GPU 时自动回退 SwiftShader。仓库自带 `examples/three.html` 示例。
+- **可选音轨**：在导出区选择一个音频文件（MP3 / WAV / M4A / AAC / FLAC / OGG），会编码为 AAC 并与画面混流；音轨短于视频时自动补静音，长于视频时自动裁剪。
 - **精确时间轴**：注入页面时钟控制器，重写 `performance.now` / `Date.now` / `requestAnimationFrame`，暂停并 seek CSS / Web Animations，逐帧推进时间。
 - **渲染期间锁定时间轴**：进度条不可拖动，但会显示当前帧、总帧数、速度、ETA 和实时画面。
 - **无临时帧文件**：Chromium 截图以 JPEG 通过 stdin 直接送入 FFmpeg，磁盘上只产生最终 MP4。
@@ -75,10 +77,22 @@ go build -trimpath -ldflags "-s -w" -o Chromaframe.exe .
   --duration 10 --fps 30
 ```
 
+带音轨：
+
+```powershell
+.\Chromaframe.exe --render `
+  --html examples\three.html `
+  --audio C:\Users\me\Music\soundtrack.mp3 `
+  --out out\three.mp4 `
+  --width 1920 --height 1080 `
+  --duration 12 --fps 30
+```
+
 | 参数 | 说明 |
 | --- | --- |
 | `--html` | 输入 HTML 文件 |
 | `--out` | 输出 MP4 路径 |
+| `--audio` | 可选音轨文件（MP3 / WAV / M4A 等），留空则导出静音视频 |
 | `--width` / `--height` | 输出分辨率（必须为偶数） |
 | `--duration` | 时长（秒） |
 | `--fps` | 帧率 |
@@ -93,9 +107,29 @@ go build -trimpath -ldflags "-s -w" -o Chromaframe.exe .
 
 1. **页面源**：点击“浏览”选择本地 `.html` 文件，或直接粘贴绝对路径后按回车。相对资源、ES Modules、字体和 CDN 资源都会从 HTML 所在目录提供服务。
 2. **画布**：填写宽高，或点击比例按钮；修改后右侧预览立即按新比例缩放。时长可手动填写，也可点“自动”读取页面动画 / 视频时长。
-3. **导出**：选择输出 MP4 路径。默认输出到 HTML 同目录的同名 `.mp4`。
+3. **导出**：选择输出 MP4 路径。默认输出到 HTML 同目录的同名 `.mp4`。需要声音时，在“音轨”里选择一个音频文件；留空则导出静音视频。
 4. **预览与拖动**：拖动底部进度条可定位页面时刻；点击播放按钮可预览动画。
 5. **开始渲染**：渲染时进度条锁定，显示当前帧 / 总帧数与实时画面；可随时“取消渲染”。完成后会提示并可直接打开视频。
+
+### 音轨与录音
+
+Chromaframe 支持把**已有的录音 / 音乐文件**混入导出视频，但**不调用麦克风实时录音**。原因是逐帧渲染比实时播放快或慢很多，边录边渲染无法保证音画同步；先录音、再作为音轨混入才可复现。
+
+- 支持的输入：MP3、WAV、M4A / AAC、FLAC、OGG / Opus 等 FFmpeg 能解码的格式。
+- 音轨短于视频：自动补静音到视频长度。
+- 音轨长于视频：自动裁剪到视频长度。
+- 输出：H.264 视频 + AAC 192 kbps 音轨，`+faststart` 可在网页里边下边播。
+- 如需“录音”，可先用 Windows 录音机 / Audacity / OBS 录成 WAV 或 MP3，再在“音轨”中选择该文件。
+
+### WebGL 与 three.js
+
+`examples/three.html` 是一个 three.js 示例，three.js 已本地化到 `examples/vendor/three.module.js`，不依赖 CDN。它使用 `requestAnimationFrame` 和 `performance.now()` 驱动动画，正好配合 Chromaframe 的虚拟时钟。
+
+```powershell
+.\Chromaframe.exe --render --html examples\three.html --out out\three.mp4 --width 1920 --height 1080 --duration 12 --fps 30
+```
+
+渲染器默认带 `--enable-unsafe-swiftshader`，没有可用 GPU 时会用软件光栅化，速度较慢但结果稳定；有 GPU 时走硬件 WebGL。
 
 ### 页面作者提示
 
@@ -140,7 +174,7 @@ go build -trimpath -ldflags "-s -w" -o Chromaframe.exe .
                      │  Page.captureScreenshot(JPEG)
                      ▼
              FFmpeg stdin ──► H.264 / yuv420p / +faststart
-                     │
+                     │         （可选音轨 ──► AAC 192k）
                      ▼
                   MP4 文件
 ```
@@ -149,6 +183,7 @@ go build -trimpath -ldflags "-s -w" -o Chromaframe.exe .
 - 渲染使用独立临时 profile 的 headless Chromium，`Emulation.setDeviceMetricsOverride` 设置精确宽高。
 - 每帧先 `setTime(t)`，等待控制器完成动画 seek / 媒体 seek / 双 rAF 绘制，再截图。
 - FFmpeg 参数：`libx264`、`-crf 18`、`-preset medium`、`-pix_fmt yuv420p`、`-colorspace bt709`、`+faststart`。
+- 有音轨时：`-i audio -map 0:v:0 -map 1:a:0 -af apad -t <duration> -c:a aac -b:a 192k`；无音轨时使用 `-an`。
 
 ---
 
@@ -169,6 +204,8 @@ chromaframe/
 ├── assets/controller.js    # 注入页面的虚拟时钟控制器
 ├── web/                    # 主界面 HTML / CSS / JS
 ├── examples/demo.html      # 可直接渲染的演示动画
+├── examples/three.html     # three.js / WebGL 示例
+├── examples/vendor/        # 本地化的 three.module.js
 ├── third_party/go-webview2 # 打过补丁的 WebView2 绑定
 ├── build.ps1
 └── README.md

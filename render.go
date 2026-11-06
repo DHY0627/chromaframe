@@ -25,12 +25,13 @@ import (
 // RenderOptions is one render job. Zero Duration/FPS/Width/Height fall back to
 // defaults, which keeps the CLI pleasant to use.
 type RenderOptions struct {
-	HTMLPath string
-	Output   string
-	Width    int
-	Height   int
-	Duration float64
-	FPS      int
+	HTMLPath  string
+	Output    string
+	AudioPath string
+	Width     int
+	Height    int
+	Duration  float64
+	FPS       int
 }
 
 type RenderSnapshot struct {
@@ -294,7 +295,23 @@ func (r *renderer) run(ctx context.Context, opts RenderOptions) (err error) {
 		"-f", "image2pipe",
 		"-framerate", strconv.Itoa(opts.FPS),
 		"-i", "pipe:0",
-		"-an",
+	}
+	if opts.AudioPath != "" {
+		// Optional audio track. It is stretched with silence or trimmed to the
+		// exact video duration so the muxed MP4 never ends early.
+		args = append(args,
+			"-i", opts.AudioPath,
+			"-map", "0:v:0",
+			"-map", "1:a:0",
+			"-af", "apad",
+			"-t", strconv.FormatFloat(opts.Duration, 'f', 3, 64),
+			"-c:a", "aac",
+			"-b:a", "192k",
+		)
+	} else {
+		args = append(args, "-an")
+	}
+	args = append(args,
 		"-vf", "scale=in_range=full:out_range=tv",
 		"-c:v", "libx264",
 		"-preset", "medium",
@@ -305,7 +322,7 @@ func (r *renderer) run(ctx context.Context, opts RenderOptions) (err error) {
 		"-color_trc", "bt709",
 		"-movflags", "+faststart",
 		tmpOut,
-	}
+	)
 	cmd := exec.CommandContext(ctx, ffmpegPath, args...)
 	configureChild(cmd)
 	stdin, err := cmd.StdinPipe()
@@ -679,6 +696,28 @@ func normalizeRenderOptions(opts RenderOptions) (RenderOptions, error) {
 		return opts, fmt.Errorf("无法创建导出目录: %w", err)
 	}
 	opts.Output = outAbs
+
+	audio := strings.TrimSpace(opts.AudioPath)
+	if audio != "" {
+		audio = fixWindowsPath(audio)
+		audioAbs, err := filepath.Abs(audio)
+		if err != nil {
+			return opts, err
+		}
+		st, err := os.Stat(audioAbs)
+		if err != nil {
+			return opts, fmt.Errorf("无法读取音轨文件：%w", err)
+		}
+		if st.IsDir() {
+			return opts, fmt.Errorf("音轨需要选择文件，而不是文件夹")
+		}
+		if strings.EqualFold(audioAbs, outAbs) {
+			return opts, fmt.Errorf("音轨文件不能与导出文件相同")
+		}
+		opts.AudioPath = audioAbs
+	} else {
+		opts.AudioPath = ""
+	}
 	return opts, nil
 }
 

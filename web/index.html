@@ -104,6 +104,15 @@
           <button class="linkish" id="copyPath" type="button">复制路径</button>
         </div>
 
+        <label class="field">
+          <span class="label">音轨 <em class="label-optional">可选</em></span>
+          <div class="input-row">
+            <input id="audio" class="text-input" type="text" spellcheck="false" placeholder="MP3 / WAV / M4A，留空则静音">
+            <button class="btn ghost" id="browseAudio" type="button">选择</button>
+          </div>
+        </label>
+        <p class="hint">音轨会补静音或裁剪到与视频等长。这里导入的是音频文件，不是麦克风实时录音。</p>
+
         <div class="ffmpeg-card" id="ffmpegCard">
           <div class="ffmpeg-head">
             <span class="dot" id="ffmpegDot"></span>

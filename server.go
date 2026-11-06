@@ -236,12 +236,13 @@ func (a *App) handleSetHTML(w http.ResponseWriter, r *http.Request) {
 }
 
 type renderRequest struct {
-	HTMLPath string  `json:"htmlPath"`
-	Output   string  `json:"output"`
-	Width    int     `json:"width"`
-	Height   int     `json:"height"`
-	Duration float64 `json:"duration"`
-	FPS      int     `json:"fps"`
+	HTMLPath  string  `json:"htmlPath"`
+	Output    string  `json:"output"`
+	AudioPath string  `json:"audioPath"`
+	Width     int     `json:"width"`
+	Height    int     `json:"height"`
+	Duration  float64 `json:"duration"`
+	FPS       int     `json:"fps"`
 }
 
 func (a *App) handleRender(w http.ResponseWriter, r *http.Request) {
@@ -255,12 +256,13 @@ func (a *App) handleRender(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	snap, err := a.render.Start(RenderOptions{
-		HTMLPath: req.HTMLPath,
-		Output:   req.Output,
-		Width:    req.Width,
-		Height:   req.Height,
-		Duration: req.Duration,
-		FPS:      req.FPS,
+		HTMLPath:  req.HTMLPath,
+		Output:    req.Output,
+		AudioPath: req.AudioPath,
+		Width:     req.Width,
+		Height:    req.Height,
+		Duration:  req.Duration,
+		FPS:       req.FPS,
 	})
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "%v", err)

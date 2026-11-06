@@ -32,6 +32,7 @@ func main() {
 		renderMode = flag.Bool("render", false, "命令行渲染模式（无界面）")
 		htmlPath   = flag.String("html", "", "render 模式：HTML 文件路径")
 		outPath    = flag.String("out", "", "render 模式：输出 MP4 路径")
+		audioPath  = flag.String("audio", "", "render 模式：可选音轨文件（MP3/WAV/M4A 等）")
 		width      = flag.Int("width", 1920, "render 模式：宽度")
 		height     = flag.Int("height", 1080, "render 模式：高度")
 		duration   = flag.Float64("duration", 10, "render 模式：时长（秒）")
@@ -53,12 +54,13 @@ func main() {
 			os.Exit(2)
 		}
 		if err := runCLIRender(logger, RenderOptions{
-			HTMLPath: *htmlPath,
-			Output:   *outPath,
-			Width:    *width,
-			Height:   *height,
-			Duration: *duration,
-			FPS:      *fps,
+			HTMLPath:  *htmlPath,
+			Output:    *outPath,
+			AudioPath: *audioPath,
+			Width:     *width,
+			Height:    *height,
+			Duration:  *duration,
+			FPS:       *fps,
 		}); err != nil {
 			logger.Printf("render failed: %v", err)
 			fmt.Fprintln(os.Stderr, "渲染失败:", err)

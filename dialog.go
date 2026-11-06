@@ -9,7 +9,7 @@ import (
 	"unicode/utf16"
 )
 
-// pickPath opens a native file dialog. kind is "html", "output" or "folder".
+// pickPath opens a native file dialog. kind is "html", "output", "audio" or "folder".
 // An empty path with a nil error means the user cancelled.
 func pickPath(kind string) (string, error) {
 	switch runtime.GOOS {
@@ -46,6 +46,17 @@ $d.Filter = 'MP4 视频 (*.mp4)|*.mp4|所有文件 (*.*)|*.*'
 $d.DefaultExt = 'mp4'
 $d.AddExtension = $true
 $d.OverwritePrompt = $true
+if ($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { [Console]::Out.WriteLine($d.FileName) }
+`
+	case "audio":
+		script = `
+Add-Type -AssemblyName System.Windows.Forms
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$d = New-Object System.Windows.Forms.OpenFileDialog
+$d.Title = '选择音轨文件'
+$d.Filter = '音频文件 (*.mp3;*.wav;*.m4a;*.aac;*.flac;*.ogg;*.opus)|*.mp3;*.wav;*.m4a;*.aac;*.flac;*.ogg;*.opus|所有文件 (*.*)|*.*'
+$d.CheckFileExists = $true
+$d.Multiselect = $false
 if ($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { [Console]::Out.WriteLine($d.FileName) }
 `
 	case "folder":
@@ -109,6 +120,8 @@ func pickPathMac(kind string) (string, error) {
 		script = `POSIX path of (choose file with prompt "选择 HTML 文件" of type {"public.html", "public.xml"})`
 	case "output":
 		script = `POSIX path of (choose file name with prompt "选择导出位置" default name "chromaframe.mp4")`
+	case "audio":
+		script = `POSIX path of (choose file with prompt "选择音轨文件" of type {"public.audio", "public.mp3", "com.microsoft.waveform-audio"})`
 	case "folder":
 		script = `POSIX path of (choose folder with prompt "选择导出文件夹")`
 	default:
@@ -133,6 +146,8 @@ func pickPathLinux(kind string) (string, error) {
 		args = []string{"--file-selection", "--title=选择 HTML 文件", "--file-filter=HTML 文件 | *.html *.htm"}
 	case "output":
 		args = []string{"--file-selection", "--save", "--confirm-overwrite", "--title=选择导出位置", "--filename=chromaframe.mp4"}
+	case "audio":
+		args = []string{"--file-selection", "--title=选择音轨文件", "--file-filter=音频文件 | *.mp3 *.wav *.m4a *.aac *.flac *.ogg *.opus"}
 	case "folder":
 		args = []string{"--file-selection", "--directory", "--title=选择导出文件夹"}
 	default:

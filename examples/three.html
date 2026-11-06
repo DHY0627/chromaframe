@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="zh-CN" data-cf-duration="12">
+<head>
+<meta charset="utf-8">
+<title>Chromaframe × three.js — Kinetic Field</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #050608; }
+  body { font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif; color: #f2efe8; }
+  #scene { position: fixed; inset: 0; display: block; }
+  .vignette {
+    position: fixed; inset: 0; pointer-events: none;
+    background:
+      radial-gradient(ellipse at 50% 45%, rgba(0,0,0,0) 35%, rgba(0,0,0,0.55) 100%),
+      linear-gradient(180deg, rgba(0,0,0,0.35), rgba(0,0,0,0) 30%, rgba(0,0,0,0.45));
+  }
+  .frame {
+    position: fixed; inset: 4.2vmin; border: 1px solid rgba(255,255,255,0.10);
+    pointer-events: none;
+  }
+  .frame::before, .frame::after {
+    content: ""; position: absolute; width: 2.2vmin; height: 2.2vmin;
+    border-color: #d8ff5a; border-style: solid;
+  }
+  .frame::before { left: -1px; top: -1px; border-width: 1px 0 0 1px; }
+  .frame::after { right: -1px; bottom: -1px; border-width: 0 1px 1px 0; }
+  .hud {
+    position: fixed; left: 7.5vmin; top: 8vmin; pointer-events: none;
+    text-transform: uppercase; letter-spacing: 0.2em;
+  }
+  .kicker { font-size: 1.25vmin; color: #d8ff5a; letter-spacing: 0.34em; }
+  .kicker::before {
+    content: ""; display: inline-block; width: 5vmin; height: 1px;
+    background: #d8ff5a; vertical-align: middle; margin-right: 1.4vmin; opacity: .7;
+  }
+  h1 { margin: 2.2vmin 0 0; font-size: 9.6vmin; line-height: 0.88; letter-spacing: -0.035em; font-weight: 800; }
+  h1 span { display: block; }
+  h1 .outline {
+    color: transparent; -webkit-text-stroke: 1px rgba(242,239,232,0.55);
+  }
+  .sub { margin-top: 2.6vmin; font-size: 1.5vmin; line-height: 1.75; letter-spacing: 0.06em; color: #9a9c9f; max-width: 34vmin; }
+  .sub b { color: #f2efe8; font-weight: 500; }
+  .meta {
+    position: fixed; left: 7.5vmin; bottom: 7.6vmin; display: flex; gap: 1.2vmin; pointer-events: none;
+  }
+  .tag {
+    padding: 1vmin 1.6vmin; border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 999px; font-size: 1.2vmin; letter-spacing: 0.16em; color: #c9c7c2;
+  }
+  .tag.on { color: #d8ff5a; border-color: rgba(216,255,90,0.45); background: rgba(216,255,90,0.06); }
+  .right {
+    position: fixed; right: 7.5vmin; top: 50%; transform: translateY(-50%);
+    text-align: right; pointer-events: none;
+  }
+  .count { font-size: 13vmin; line-height: 0.9; font-weight: 200; letter-spacing: -0.05em; font-variant-numeric: tabular-nums; }
+  .count small { font-size: 2.6vmin; letter-spacing: 0.1em; color: #d8ff5a; margin-left: 0.8vmin; }
+  .count-label { margin-top: 1.2vmin; font-size: 1.15vmin; letter-spacing: 0.32em; color: #9a9c9f; text-transform: uppercase; }
+  .scan {
+    position: fixed; left: 7.5vmin; right: 7.5vmin; bottom: 3.3vmin; height: 1px;
+    background: rgba(255,255,255,0.10); overflow: hidden;
+  }
+  .scan i {
+    display: block; height: 100%; width: 100%; background: #d8ff5a;
+    transform-origin: left center; transform: scaleX(0);
+    animation: sweep 12s linear forwards;
+  }
+  @keyframes sweep { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+  .grain {
+    position: fixed; inset: 0; pointer-events: none; opacity: .055;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+</style>
+</head>
+<body>
+<canvas id="scene"></canvas>
+<div class="vignette"></div>
+<div class="grain"></div>
+<div class="frame"></div>
+
+<div class="hud">
+  <div class="kicker">three.js / kinetic field 002</div>
+  <h1><span>RENDER</span><span class="outline">THE VOID</span></h1>
+  <p class="sub">A real-time WebGL object study.<br>Every frame is driven by Chromaframe's<br>virtual clock, then encoded by <b>FFmpeg</b>.</p>
+</div>
+
+<div class="right">
+  <div class="count"><span id="pct">0</span><small>%</small></div>
+  <div class="count-label">frame progress</div>
+</div>
+
+<div class="meta">
+  <div class="tag on">WEBGL 2</div>
+  <div class="tag">REAL-TIME</div>
+  <div class="tag">H.264 / YUV420P</div>
+  <div class="tag">12.0 SEC</div>
+</div>
+
+<div class="scan"><i></i></div>
+
+<script type="module">
+import * as THREE from './vendor/three.module.js';
+
+const canvas = document.getElementById('scene');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+renderer.setPixelRatio(1);
+renderer.setSize(window.innerWidth, window.innerHeight, false);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.12;
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x050608, 0.035);
+
+const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 120);
+camera.position.set(0, 0.4, 9.2);
+
+// ---- lights -----------------------------------------------------------------
+scene.add(new THREE.AmbientLight(0x33445c, 1.5));
+const key = new THREE.PointLight(0xd8ff5a, 120, 30, 2);
+key.position.set(-4, 3, 4);
+scene.add(key);
+const rim = new THREE.PointLight(0x3d7bff, 90, 30, 2);
+rim.position.set(5, -2, 3);
+scene.add(rim);
+const back = new THREE.PointLight(0xff4d6d, 55, 25, 2);
+back.position.set(0, 4, -6);
+scene.add(back);
+const top = new THREE.DirectionalLight(0xffffff, 2.4);
+top.position.set(-5, 7, 5);
+scene.add(top);
+const fill = new THREE.DirectionalLight(0xd8ff5a, 1.8);
+fill.position.set(6, -3, 4);
+scene.add(fill);
+
+// ---- hero: a faceted torus knot --------------------------------------------
+const knotGeo = new THREE.TorusKnotGeometry(1.65, 0.46, 240, 28, 2, 3);
+const knotMat = new THREE.MeshStandardMaterial({
+  color: 0xa9c955,
+  metalness: 0.55,
+  roughness: 0.26,
+  emissive: 0x111d05,
+  emissiveIntensity: 0.5,
+  flatShading: true
+});
+const knot = new THREE.Mesh(knotGeo, knotMat);
+knot.position.set(1.6, 0.1, 0);
+scene.add(knot);
+
+// wireframe halo
+const halo = new THREE.Mesh(
+  new THREE.TorusKnotGeometry(1.72, 0.5, 180, 10, 2, 3),
+  new THREE.MeshBasicMaterial({ color: 0xd8ff5a, wireframe: true, transparent: true, opacity: 0.075 })
+);
+halo.position.copy(knot.position);
+scene.add(halo);
+
+// ---- particles --------------------------------------------------------------
+const COUNT = 1600;
+const positions = new Float32Array(COUNT * 3);
+const seeds = new Float32Array(COUNT);
+for (let i = 0; i < COUNT; i++) {
+  const r = 5.5 + Math.random() * 7.5;
+  const theta = Math.random() * Math.PI * 2;
+  const phi = Math.acos(2 * Math.random() - 1);
+  positions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+  positions[i * 3 + 1] = r * Math.cos(phi) * 0.55;
+  positions[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
+  seeds[i] = Math.random();
+}
+const pGeo = new THREE.BufferGeometry();
+pGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+pGeo.setAttribute('aSeed', new THREE.BufferAttribute(seeds, 1));
+const pMat = new THREE.PointsMaterial({
+  color: 0x9fb7c9, size: 0.035, transparent: true, opacity: 0.75,
+  sizeAttenuation: true, depthWrite: false
+});
+const points = new THREE.Points(pGeo, pMat);
+scene.add(points);
+
+// ---- floor grid -------------------------------------------------------------
+const grid = new THREE.GridHelper(40, 40, 0x2a3138, 0x141a1f);
+grid.position.y = -3.4;
+scene.add(grid);
+
+// ---- animation --------------------------------------------------------------
+let start = null;
+const pct = document.getElementById('pct');
+const durationMs = 12000;
+
+function animate(now) {
+  if (start === null) start = now;
+  const t = Math.max(0, (now - start) / 1000);
+
+  knot.rotation.x = t * 0.42;
+  knot.rotation.y = t * 0.68;
+  halo.rotation.x = -t * 0.31;
+  halo.rotation.y = t * 0.47;
+
+  points.rotation.y = t * 0.035;
+  points.rotation.x = Math.sin(t * 0.22) * 0.08;
+  pMat.opacity = 0.55 + Math.sin(t * 0.9) * 0.16;
+
+  camera.position.x = Math.sin(t * 0.22) * 0.6;
+  camera.position.y = 0.4 + Math.sin(t * 0.31) * 0.18;
+  camera.lookAt(0.4, 0, 0);
+
+  key.intensity = 110 + Math.sin(t * 1.4) * 30;
+  rim.intensity = 80 + Math.cos(t * 0.9) * 24;
+
+  pct.textContent = String(Math.min(100, Math.round((t * 1000 / durationMs) * 100)));
+
+  renderer.render(scene, camera);
+  requestAnimationFrame(animate);
+}
+
+function resize() {
+  const w = window.innerWidth, h = window.innerHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', resize);
+resize();
+requestAnimationFrame(animate);
+
+// Expose readiness for Chromaframe's controller.
+window.__threeReady = true;
+</script>
+</body>
+</html>

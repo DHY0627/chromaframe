@@ -12,6 +12,7 @@
     width: $('width'), height: $('height'), ratioRow: $('ratioRow'),
     duration: $('duration'), autoDuration: $('autoDuration'), fps: $('fps'),
     output: $('output'), browseOutput: $('browseOutput'), revealOutput: $('revealOutput'),
+    audio: $('audio'), browseAudio: $('browseAudio'),
     copyPath: $('copyPath'),
     ffmpegCard: $('ffmpegCard'), ffmpegDot: $('ffmpegDot'), ffmpegCardText: $('ffmpegCardText'),
     ffmpegProgress: $('ffmpegProgress'), ffmpegProgressFill: $('ffmpegProgressFill'), ffmpegFoot: $('ffmpegFoot'),
@@ -162,6 +163,7 @@
       localStorage.setItem(SETTINGS_KEY, JSON.stringify({
         htmlPath: els.htmlPath.value.trim(),
         output: els.output.value.trim(),
+        audio: els.audio.value.trim(),
         outputAuto: S.outputAuto,
         width: S.width, height: S.height,
         duration: S.duration, fps: S.fps
@@ -181,6 +183,7 @@
       if (v.duration) els.duration.value = String(v.duration);
       if (v.fps) els.fps.value = String(v.fps);
       if (typeof v.output === 'string') els.output.value = v.output;
+      if (typeof v.audio === 'string') els.audio.value = v.audio;
       if (typeof v.outputAuto === 'boolean') S.outputAuto = v.outputAuto;
       if (typeof v.htmlPath === 'string') els.htmlPath.value = v.htmlPath;
       return v;
@@ -511,7 +514,8 @@
   function setControlsBusy(busy) {
     S.busy = busy;
     var controls = [els.htmlPath, els.browseHtml, els.emptyPick, els.width, els.height,
-      els.duration, els.autoDuration, els.fps, els.output, els.browseOutput];
+      els.duration, els.autoDuration, els.fps, els.output, els.browseOutput,
+      els.audio, els.browseAudio];
     for (var i = 0; i < controls.length; i++) controls[i].disabled = busy;
     var ratios = els.ratioRow.querySelectorAll('.ratio');
     for (var j = 0; j < ratios.length; j++) ratios[j].disabled = busy;
@@ -653,6 +657,7 @@
       return api('/api/render', {
         htmlPath: S.htmlPath,
         output: output,
+        audioPath: els.audio.value.trim(),
         width: S.width,
         height: S.height,
         duration: S.duration,
@@ -803,6 +808,15 @@
     els.output.addEventListener('input', function () {
       S.outputAuto = els.output.value.trim() === '';
       saveSettings();
+    });
+
+    els.audio.addEventListener('input', saveSettings);
+    els.browseAudio.addEventListener('click', function () {
+      pick('audio').then(function (p) {
+        if (!p) return;
+        els.audio.value = p;
+        saveSettings();
+      });
     });
 
     els.browseOutput.addEventListener('click', function () {
